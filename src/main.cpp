@@ -13,6 +13,9 @@ int main(int argc, char *argv[])
     int jobs = 10000;
     app.add_option("-j", jobs, "Number of jobs to run");
 
+    int busy_wait = 100000;
+    app.add_option("-b", busy_wait, "Busy wait cycle");
+
     CLI11_PARSE(app, argc, argv);
 
     boost::asio::io_context context;
@@ -31,11 +34,16 @@ int main(int argc, char *argv[])
     {
         auto promise = std::make_shared<std::promise<void>>();
         futures.emplace_back(promise->get_future());
-        context.post([i, promise = std::move(promise), &print_mutex](){
+        context.post([i, promise = std::move(promise), &print_mutex, busy_wait](){
             {
                 std::lock_guard<std::mutex> lock(print_mutex);
-                std::cout << "Hello world\t" << i << "\t" << std::this_thread::get_id() << "\n";
+                std::cout << "Hello world\t" << i << "\t" << std::this_thread::get_id() << std::endl;
             }
+
+            for (auto x = 0; x < busy_wait; x++) {
+                __asm__ volatile("" : "+g" (x) : :);
+            }            
+
             promise->set_value();
         });
     }
